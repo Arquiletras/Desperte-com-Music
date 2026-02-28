@@ -556,22 +556,19 @@ function previewCustomMusic() {
   setTimeout(()=>{ if(customAudioEl && !alarmPlaying) stopCustomMusic(); }, 5000);
 }
 
-// --- FUNÇÃO ATUALIZADA PARA 30 SEGUNDOS ---
+// --- FUNÇÃO ATUALIZADA COM LOOP ---
 function playCustomMusic() {
   if (!customMusicURL) return;
   stopCustomMusic(); // Para qualquer música anterior
   
   customAudioEl = new Audio(customMusicURL);
   customAudioEl.volume = volume / 100;
-  customAudioEl.loop = false; // NÃO coloca em loop
+  customAudioEl.loop = true; // ATIVAR LOOP AQUI!
   
   // Toca a música
   customAudioEl.play().catch(()=>{});
-
-  // Temporizador para parar após 30 segundos (30000 milissegundos)
-  setTimeout(function() {
-      stopCustomMusic(); // Chama a função para parar
-  }, 30000); 
+  
+  // O setTimeout de 30 segundos foi removido!
 }
 // ------------------------------------------
 
@@ -759,67 +756,69 @@ function setBellInterval(min) {
   bellInterval = min;
   document.querySelectorAll('.bell-opt').forEach(b=>b.classList.remove('active'));
   document.getElementById('bi-'+min)?.classList.add('active');
-  if(bellActive){ stopBell(); startBell(); }
+  if(bellActive) {
+      stopBell();
+      startBell();
+  }
 }
 
 function startBell() {
-  if (bellTimerID) clearInterval(bellTimerID);
-  playBellSound();
-  bellTimerID = setInterval(playBellSound, bellInterval * 60 * 1000);
-  showToast(`🔔 Sino a cada ${bellInterval} min`);
+    if(bellTimerID) clearInterval(bellTimerID);
+    bellTimerID = setInterval(playBellSound, bellInterval * 60 * 1000);
+    showToast(`🔔 Sino a cada ${bellInterval} min`);
 }
 
 function stopBell() {
-  clearInterval(bellTimerID);
-  showToast('🔔 Sino desativado');
+    clearInterval(bellTimerID);
+    bellTimerID = null;
+    showToast('🔔 Sino desativado');
 }
 
-// ─── UI Utilities ────────────────────────────────────────────────────────
-function showToast(msg) {
-  const t = document.getElementById('bellToast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 3000);
+// ─── Utils ───────────────────────────────────────────────────────────────
+function showToast(text) {
+  const toast = document.getElementById('bellToast');
+  toast.textContent = text;
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'), 2000);
 }
 
-// ─── Core Logic ──────────────────────────────────────────────────────────
-function checkAlarms() {
+// ─── Clock Setup ─────────────────────────────────────────────────────────
+function updateClock() {
   const now = new Date();
   const h = now.getHours();
   const m = now.getMinutes();
   const s = now.getSeconds();
   
-  if (s === 0) {
-    document.getElementById('current-time').textContent = `${pad(h)}:${pad(m)}`;
-    const trigger = alarms.find(a=>a.active && a.hour===h && a.min===m);
-    if(trigger) triggerAlarm(trigger);
+  document.getElementById('current-time').textContent = `${pad(h)}:${pad(m)}`;
+  document.getElementById('current-date').textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'short'});
+  
+  // Check Alarms
+  if (s === 0 && !alarmPlaying) {
+    const trigger = alarms.find(a => a.active && a.hour === h && a.min === m);
+    if (trigger) triggerAlarm(trigger);
   }
 }
 
-// Init stars
-const stars = document.getElementById('stars');
-for(let i=0; i<50; i++) {
-  const s = document.createElement('div');
-  s.className = 'star';
-  s.style.width = s.style.height = (Math.random()*2+1)+'px';
-  s.style.left = Math.random()*100+'%';
-  s.style.top = Math.random()*100+'%';
-  s.style.setProperty('--d', (Math.random()*2+2)+'s');
-  s.style.setProperty('--op', (Math.random()*0.5+0.3));
-  stars.appendChild(s);
+// ─── Background Stars ──────────────────────────────────────────────────
+function createStars() {
+  const container = document.getElementById('stars');
+  for(let i=0;i<50;i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.style.width = star.style.height = Math.random()*3+'px';
+    star.style.top = Math.random()*100+'%';
+    star.style.left = Math.random()*100+'%';
+    star.style.setProperty('--d', Math.random()*3+2+'s');
+    star.style.setProperty('--op', Math.random()*0.5+0.2);
+    container.appendChild(star);
+  }
 }
 
-// Tick
-setInterval(()=>{
-  const now = new Date();
-  document.getElementById('current-date').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-  checkAlarms();
-}, 1000);
-
+setInterval(updateClock, 1000);
+updateClock();
+createStars();
 renderAlarms();
-// Fix range track
-const range = document.getElementById('volumeRange');
-range.style.setProperty('--pct', range.value + '%');
+
 </script>
 </body>
 </html>
