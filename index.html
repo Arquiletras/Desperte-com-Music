@@ -317,7 +317,7 @@
 
 <div class="alarm-overlay" id="alarmOverlay">
   <div class="alarm-overlay-icon">🎵</div>
-  <h2 id="overlayTime">00:00</h2>
+  <h2 id="overlayTime">07:00</h2>
   <p id="overlayLabel">Hora de despertar!</p>
   <div class="alarm-btns">
     <button class="btn-snooze" onclick="snoozeAlarm()">💤 Soneca 5 min</button>
@@ -328,6 +328,7 @@
 <div class="bell-toast" id="bellToast">🔔 Sino</div>
 
 <div class="container">
+
   <div class="install-banner hidden" id="installBanner" onclick="installApp()">
     <div class="install-icon">📲</div>
     <div class="install-text">
@@ -433,6 +434,17 @@
         <button class="bell-opt" onclick="setBellInterval(120)" id="bi-120">2 horas</button>
       </div>
     </div>
+    <div class="toggle-row" style="margin-top:8px">
+      <div class="toggle-label">
+        <span>🎵 Tom do sino</span>
+        <span id="bellSoundLabel">Tigela Zen</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="sound-btn" style="padding:6px 10px;font-size:18px" onclick="selectBellSound('ding')" id="bs-ding" title="Sino">🔔</button>
+        <button class="sound-btn active" style="padding:6px 10px;font-size:18px" onclick="selectBellSound('bowl')" id="bs-bowl" title="Tigela">🎶</button>
+        <button class="sound-btn" style="padding:6px 10px;font-size:18px" onclick="selectBellSound('chime')" id="bs-chime" title="Carrilhão">✨</button>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -441,30 +453,58 @@
       <div class="empty-state">Nenhum alarme programado ainda.<br>Adicione seu primeiro alarme acima ✦</div>
     </div>
   </div>
+
 </div>
 
 <script>
-// PWA & NOTIFICAÇÕES
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(console.error); }
+// ─── PWA ─────────────────────────────────────────────────────────────────
+let deferredPrompt = null;
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(console.error);
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.remove('hidden');
+});
+
+async function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') document.getElementById('installBanner').classList.add('hidden');
+  deferredPrompt = null;
+}
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').classList.add('hidden');
+});
+
 async function requestNotif() {
   if (!('Notification' in window)) return;
   const perm = await Notification.requestPermission();
   if (perm === 'granted') {
     document.getElementById('notifBanner').classList.add('hidden');
+    scheduleAllAlarmNotifications();
     showToast('✦ Notificações ativadas!');
   }
 }
+
+// Hide notif banner if already granted
 if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
   document.getElementById('notifBanner').classList.add('hidden');
 }
 
-// AUDIO ENGINE
+// ─── Audio Engine ────────────────────────────────────────────────────────
 let audioCtx = null;
+let alarmInterval = null;
 let alarmPlaying = false;
+let bellTimerID = null;
 let volume = 70;
 let selectedSound = 'piano';
-let customMusicURL = null;
-let customAudioEl = null;
+let selectedBellSound = 'bowl';
 
 function getAudio() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -472,122 +512,314 @@ function getAudio() {
   return audioCtx;
 }
 
-function pad(n){ return String(n).padStart(2,'0'); }
-
-// RELÓGIO INSTANTÂNEO (MUDANÇA SOLICITADA)
-function updateClock() {
-  const now = new Date();
-  const h = now.getHours();
-  const m = now.getMinutes();
-  const s = now.getSeconds();
-  
-  // Atualiza o display visual
-  document.getElementById('current-time').textContent = `${pad(h)}:${pad(m)}`;
-  document.getElementById('current-date').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-
-  // Checa alarmes exatamente no segundo zero
-  if (s === 0) {
-    const trigger = alarms.find(a => a.active && a.hour === h && a.min === m);
-    if (trigger) triggerAlarm(trigger);
-  }
+function playTone(freq, type='sine', duration=0.8, vol=0.4, delay=0) {
+  const ctx = getAudio();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = type; osc.frequency.value = freq;
+  const t = ctx.currentTime + delay;
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(vol * (volume/100), t + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc.start(t); osc.stop(t + duration + 0.05);
 }
 
-// MÚSICA PERSONALIZADA
+// ─── Música personalizada ────────────────────────────────────────────────
+let customMusicURL = null;
+let customMusicName = null;
+let customAudioEl = null;
+
 function handleMusicFile(input) {
   const file = input.files[0];
   if (!file) return;
   if (customMusicURL) URL.revokeObjectURL(customMusicURL);
   customMusicURL = URL.createObjectURL(file);
-  document.getElementById('musicName').textContent = file.name;
+  customMusicName = file.name.replace(/\.[^/.]+$/, '');
+  document.getElementById('musicName').textContent = customMusicName;
   document.getElementById('musicSelected').classList.remove('hidden');
+  document.getElementById('btnPickMusic').innerHTML = '<span>📂</span> Trocar música';
+  document.getElementById('btnPickMusic').classList.add('has-music');
   selectedSound = 'custom';
-  showToast('🎵 Música selecionada!');
+  document.querySelectorAll('.sound-grid .sound-btn').forEach(b=>b.classList.remove('active'));
+  showToast('🎵 ' + customMusicName + ' selecionada!');
+  previewCustomMusic();
 }
 
-function playCustomMusic() {
+function previewCustomMusic() {
   if (!customMusicURL) return;
   stopCustomMusic();
   customAudioEl = new Audio(customMusicURL);
   customAudioEl.volume = volume / 100;
-  customAudioEl.loop = true; // Repetir para sempre
-  customAudioEl.play().catch(console.error);
+  customAudioEl.loop = false;
+  customAudioEl.play().catch(()=>{});
+  setTimeout(()=>{ if(customAudioEl && !alarmPlaying) stopCustomMusic(); }, 5000);
 }
 
+// --- FUNÇÃO ATUALIZADA PARA 30 SEGUNDOS ---
+function playCustomMusic() {
+  if (!customMusicURL) return;
+  stopCustomMusic(); // Para qualquer música anterior
+  
+  customAudioEl = new Audio(customMusicURL);
+  customAudioEl.volume = volume / 100;
+  customAudioEl.loop = false; // NÃO coloca em loop
+  
+  // Toca a música
+  customAudioEl.play().catch(()=>{});
+
+  // Temporizador para parar após 30 segundos (30000 milissegundos)
+  setTimeout(function() {
+      stopCustomMusic(); // Chama a função para parar
+  }, 30000); 
+}
+// ------------------------------------------
+
 function stopCustomMusic() {
-  if (customAudioEl) { customAudioEl.pause(); customAudioEl = null; }
+  if (customAudioEl) { customAudioEl.pause(); customAudioEl.currentTime = 0; customAudioEl = null; }
+}
+
+function clearMusic() {
+  stopCustomMusic();
+  if (customMusicURL) { URL.revokeObjectURL(customMusicURL); customMusicURL = null; }
+  customMusicName = null;
+  document.getElementById('musicSelected').classList.add('hidden');
+  document.getElementById('btnPickMusic').innerHTML = '<span>📂</span> Escolher música do celular';
+  document.getElementById('btnPickMusic').classList.remove('has-music');
+  document.getElementById('musicFile').value = '';
+  selectedSound = 'piano';
+  document.getElementById('snd-piano').classList.add('active');
+}
+
+function playAlarmSound() {
+  if (selectedSound === 'custom') { playCustomMusic(); return; }
+  switch(selectedSound) {
+    case 'piano': [261.63,329.63,392,523.25].forEach((f,i)=>playTone(f,'sine',1.5,0.3,i*.18)); break;
+    case 'birds': for(let i=0;i<6;i++) playTone(800+Math.random()*800,'sine',0.2,0.15,i*.12+Math.random()*.05); break;
+    case 'bell': playTone(528,'sine',3,0.5,0); playTone(264,'sine',3,0.2,0); break;
+    case 'harp': [880,783.99,659.25,523.25,392].forEach((f,i)=>playTone(f,'triangle',1.2,0.3,i*.15)); break;
+    case 'ocean': [100,150,200].forEach(f=>{
+      const ctx=getAudio(),osc=ctx.createOscillator(),g=ctx.createGain();
+      osc.connect(g);g.connect(ctx.destination);osc.type='sawtooth';osc.frequency.value=f;
+      const t=ctx.currentTime;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05*volume/100,t+.5);
+      g.gain.linearRampToValueAtTime(0,t+2.5);osc.start(t);osc.stop(t+3);
+    }); break;
+    case 'trumpet': [392,493.88,587.33,783.99].forEach((f,i)=>playTone(f,'square',0.6,0.2,i*.2)); break;
+  }
+}
+
+function playBellSound() {
+  switch(selectedBellSound) {
+    case 'ding': playTone(1760,'sine',1.5,0.5); break;
+    case 'bowl': playTone(432,'sine',3,0.5); playTone(648,'sine',2,0.2,0.1); break;
+    case 'chime': [1046.5,1318.5,1568].forEach((f,i)=>playTone(f,'triangle',1.2,0.25,i*.15)); break;
+  }
+}
+
+function selectSound(key, label) {
+  selectedSound = key;
+  document.querySelectorAll('.sound-grid .sound-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('snd-'+key)?.classList.add('active');
+  setTimeout(playAlarmSound, 50);
+}
+
+function selectBellSound(key) {
+  selectedBellSound = key;
+  ['ding','bowl','chime'].forEach(k=>document.getElementById('bs-'+k)?.classList.remove('active'));
+  document.getElementById('bs-'+key)?.classList.add('active');
+  const labels = {ding:'Sino Claro', bowl:'Tigela Zen', chime:'Carrilhão'};
+  document.getElementById('bellSoundLabel').textContent = labels[key];
+  playBellSound();
+}
+
+function updateVolume(el) {
+  volume = parseInt(el.value);
+  el.style.setProperty('--pct', volume + '%');
+}
+
+// ─── Alarms ─────────────────────────────────────────────────────────────
+let alarms = JSON.parse(localStorage.getItem('dcm_alarms') || '[]');
+const soundIcons = {piano:'🎹',birds:'🐦',bell:'🔔',harp:'🎸',ocean:'🌊',trumpet:'🎺'};
+
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function addAlarm() {
+  const h = Math.max(0, Math.min(23, parseInt(document.getElementById('alarmHour').value)||0));
+  const m = Math.max(0, Math.min(59, parseInt(document.getElementById('alarmMin').value)||0));
+  const repeat = document.getElementById('repeatDaily').checked;
+  const label = document.getElementById('alarmLabelInput').value.trim() || soundIcons[selectedSound] + ' ' + selectedSound;
+  const alarm = { id: Date.now(), hour: h, min: m, sound: selectedSound, repeat, active: true, label };
+  alarms.push(alarm);
+  saveAlarms();
+  renderAlarms();
+  scheduleAlarmNotification(alarm);
+  showToast(`✦ Alarme às ${pad(h)}:${pad(m)} adicionado`);
+  [261.63,329.63,392,523.25].forEach((f,i)=>playTone(f,'sine',1.2,0.25,i*.15));
+  document.getElementById('alarmLabelInput').value = '';
+}
+
+function saveAlarms() { localStorage.setItem('dcm_alarms', JSON.stringify(alarms)); }
+
+function deleteAlarm(id) {
+  alarms = alarms.filter(a=>a.id!==id);
+  saveAlarms(); renderAlarms();
+}
+
+function toggleAlarmActive(id) {
+  const a = alarms.find(x=>x.id===id);
+  if(a){ a.active=!a.active; saveAlarms(); renderAlarms(); }
+}
+
+function renderAlarms() {
+  const el = document.getElementById('alarmList');
+  if(!alarms.length) {
+    el.innerHTML = '<div class="empty-state">Nenhum alarme programado ainda.<br>Adicione seu primeiro alarme acima ✦</div>';
+    return;
+  }
+  el.innerHTML = alarms.map(a=>`
+    <div class="alarm-item">
+      <div class="alarm-info">
+        <div class="alarm-time-text ${a.active?'active-alarm':''}" style="${!a.active?'opacity:0.4':''}">
+          ${pad(a.hour)}:${pad(a.min)}
+        </div>
+        <div class="alarm-meta">${soundIcons[a.sound]||'🎵'} ${a.label} · ${a.repeat?'Diário':'Uma vez'}</div>
+      </div>
+      <div class="alarm-actions">
+        <label class="toggle">
+          <input type="checkbox" ${a.active?'checked':''} onchange="toggleAlarmActive(${a.id})">
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+        </label>
+        <button class="btn-delete" onclick="deleteAlarm(${a.id})">🗑</button>
+      </div>
+    </div>
+  `).join('');
 }
 
 function triggerAlarm(alarm) {
   alarmPlaying = true;
   document.getElementById('overlayTime').textContent = `${pad(alarm.hour)}:${pad(alarm.min)}`;
-  document.getElementById('overlayLabel').textContent = alarm.label;
+  document.getElementById('overlayLabel').textContent = `${soundIcons[alarm.sound]||'🎵'} ${alarm.label}`;
   document.getElementById('alarmOverlay').classList.add('show');
-  if (alarm.sound === 'custom') playCustomMusic();
-  if (!alarm.repeat) { alarm.active = false; saveAlarms(); renderAlarms(); }
+  selectedSound = alarm.sound;
+  playAlarmSound();
+  alarmInterval = setInterval(()=>{ if(alarmPlaying) playAlarmSound(); }, 3500);
+  if(!alarm.repeat) { alarms = alarms.filter(a=>a.id!==alarm.id); saveAlarms(); renderAlarms(); }
 }
 
 function stopAlarm() {
   alarmPlaying = false;
+  clearInterval(alarmInterval);
   stopCustomMusic();
   document.getElementById('alarmOverlay').classList.remove('show');
 }
 
 function snoozeAlarm() {
   stopAlarm();
-  const now = new Date();
-  const snooze = { id: Date.now(), hour: now.getHours(), min: (now.getMinutes() + 5) % 60, sound: selectedSound, repeat: false, active: true, label: '💤 Soneca' };
+  const snoozeTime = new Date(Date.now() + 5*60*1000);
+  const h = snoozeTime.getHours(), m = snoozeTime.getMinutes();
+  const snooze = { id: Date.now(), hour: h, min: m, sound: selectedSound, repeat: false, active: true, label: '💤 Soneca' };
   alarms.push(snooze);
   saveAlarms(); renderAlarms();
+  showToast(`💤 Soneca: ${pad(h)}:${pad(m)}`);
 }
 
-// ALARMES CRUD
-let alarms = JSON.parse(localStorage.getItem('dcm_alarms') || '[]');
-function saveAlarms() { localStorage.setItem('dcm_alarms', JSON.stringify(alarms)); }
-function addAlarm() {
-  const h = parseInt(document.getElementById('alarmHour').value);
-  const m = parseInt(document.getElementById('alarmMin').value);
-  const label = document.getElementById('alarmLabelInput').value || "Alarme";
-  alarms.push({ id: Date.now(), hour: h, min: m, sound: selectedSound, repeat: document.getElementById('repeatDaily').checked, active: true, label });
-  saveAlarms(); renderAlarms();
-  showToast('✦ Alarme configurado');
+// ─── Notifications ───────────────────────────────────────────────────────
+function scheduleAlarmNotification(alarm) {
+  if (Notification.permission !== 'granted') return;
+  if (!navigator.serviceWorker.controller) return;
+  const now = new Date();
+  let target = new Date();
+  target.setHours(alarm.hour, alarm.min, 0, 0);
+  if (target <= now) target.setDate(target.getDate() + 1);
+  const delay = target - now;
+  navigator.serviceWorker.controller.postMessage({ type: 'SCHEDULE_ALARM', alarm, delay });
 }
-function renderAlarms() {
-  const list = document.getElementById('alarmList');
-  if (alarms.length === 0) { list.innerHTML = '<div class="empty-state">Nenhum alarme.</div>'; return; }
-  list.innerHTML = alarms.map(a => `
-    <div class="alarm-item">
-      <div class="alarm-time-text ${a.active?'active-alarm':''}" style="font-size:24px">${pad(a.hour)}:${pad(a.min)}</div>
-      <div class="alarm-meta">${a.label}</div>
-      <button class="btn-delete" onclick="deleteAlarm(${a.id})">🗑</button>
-    </div>
-  `).join('');
-}
-function deleteAlarm(id) { alarms = alarms.filter(a => a.id !== id); saveAlarms(); renderAlarms(); }
 
-// UI UTILS
+function scheduleAllAlarmNotifications() {
+  alarms.filter(a=>a.active).forEach(scheduleAlarmNotification);
+}
+
+// ─── Bell ────────────────────────────────────────────────────────────────
+let bellInterval = 30;
+let bellActive = false;
+
+function toggleBell() {
+  bellActive = document.getElementById('bellToggle').checked;
+  if(bellActive) startBell(); else stopBell();
+  // Also schedule via SW
+  if(bellActive && Notification.permission==='granted' && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({
+      type:'SCHEDULE_BELL', interval:bellInterval,
+      label: {ding:'Sino Claro',bowl:'Tigela Zen',chime:'Carrilhão'}[selectedBellSound]
+    });
+  }
+}
+
+function setBellInterval(min) {
+  bellInterval = min;
+  document.querySelectorAll('.bell-opt').forEach(b=>b.classList.remove('active'));
+  document.getElementById('bi-'+min)?.classList.add('active');
+  if(bellActive){ stopBell(); startBell(); }
+}
+
+function startBell() {
+  if (bellTimerID) clearInterval(bellTimerID);
+  playBellSound();
+  bellTimerID = setInterval(playBellSound, bellInterval * 60 * 1000);
+  showToast(`🔔 Sino a cada ${bellInterval} min`);
+}
+
+function stopBell() {
+  clearInterval(bellTimerID);
+  showToast('🔔 Sino desativado');
+}
+
+// ─── UI Utilities ────────────────────────────────────────────────────────
 function showToast(msg) {
   const t = document.getElementById('bellToast');
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
-}
-function updateVolume(el) {
-  volume = el.value;
-  el.style.setProperty('--pct', volume + '%');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
 }
 
-// INICIALIZAÇÃO (O SEGREDO DA HORA CERTA)
-updateClock(); // Chama imediatamente ao abrir
-setInterval(updateClock, 1000); // Mantém o ciclo
-renderAlarms();
+// ─── Core Logic ──────────────────────────────────────────────────────────
+function checkAlarms() {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const s = now.getSeconds();
+  
+  if (s === 0) {
+    document.getElementById('current-time').textContent = `${pad(h)}:${pad(m)}`;
+    const trigger = alarms.find(a=>a.active && a.hour===h && a.min===m);
+    if(trigger) triggerAlarm(trigger);
+  }
+}
 
-// Estrelas de fundo
-for(let i=0; i<30; i++) {
+// Init stars
+const stars = document.getElementById('stars');
+for(let i=0; i<50; i++) {
   const s = document.createElement('div');
   s.className = 'star';
-  s.style.left = Math.random()*100+'%'; s.style.top = Math.random()*100+'%';
-  s.style.setProperty('--d', (Math.random()*3+2)+'s');
-  document.getElementById('stars').appendChild(s);
+  s.style.width = s.style.height = (Math.random()*2+1)+'px';
+  s.style.left = Math.random()*100+'%';
+  s.style.top = Math.random()*100+'%';
+  s.style.setProperty('--d', (Math.random()*2+2)+'s');
+  s.style.setProperty('--op', (Math.random()*0.5+0.3));
+  stars.appendChild(s);
 }
+
+// Tick
+setInterval(()=>{
+  const now = new Date();
+  document.getElementById('current-date').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  checkAlarms();
+}, 1000);
+
+renderAlarms();
+// Fix range track
+const range = document.getElementById('volumeRange');
+range.style.setProperty('--pct', range.value + '%');
 </script>
 </body>
 </html>
