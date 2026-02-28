@@ -315,7 +315,6 @@
 <body>
 <div class="stars" id="stars"></div>
 
-<!-- Alarm Overlay -->
 <div class="alarm-overlay" id="alarmOverlay">
   <div class="alarm-overlay-icon">🎵</div>
   <h2 id="overlayTime">07:00</h2>
@@ -326,12 +325,10 @@
   </div>
 </div>
 
-<!-- Bell Toast -->
 <div class="bell-toast" id="bellToast">🔔 Sino</div>
 
 <div class="container">
 
-  <!-- Install Banner -->
   <div class="install-banner hidden" id="installBanner" onclick="installApp()">
     <div class="install-icon">📲</div>
     <div class="install-text">
@@ -340,7 +337,6 @@
     </div>
   </div>
 
-  <!-- Notification Banner -->
   <div class="notif-banner" id="notifBanner" onclick="requestNotif()">
     <div class="install-icon">🔔</div>
     <div class="notif-text">
@@ -349,20 +345,17 @@
     </div>
   </div>
 
-  <!-- Header -->
   <div class="header">
     <span class="logo-icon">🎵</span>
     <h1>Desperte com Música</h1>
     <p>Seu despertador musical inteligente</p>
   </div>
 
-  <!-- Clock -->
   <div class="clock-display">
     <div id="current-time">00:00</div>
     <div id="current-date">—</div>
   </div>
 
-  <!-- Alarm Setup -->
   <div class="card">
     <div class="card-title">⏰ Programar Alarme</div>
     <div class="time-picker">
@@ -389,7 +382,6 @@
       <button class="sound-btn" onclick="selectSound('trumpet','Trompete')" id="snd-trumpet"><span class="sound-icon">🎺</span>Trompete</button>
     </div>
 
-    <!-- Música do celular -->
     <div class="music-picker-row" id="musicPickerRow">
       <input type="file" id="musicFile" accept="audio/*" style="display:none" onchange="handleMusicFile(this)">
       <button class="btn-music" onclick="document.getElementById('musicFile').click()" id="btnPickMusic">
@@ -421,7 +413,6 @@
     <button class="btn-add" onclick="addAlarm()">✦ Adicionar Alarme</button>
   </div>
 
-  <!-- Bell Interval -->
   <div class="card">
     <div class="card-title">🔔 Sino a Cada Intervalo</div>
     <div class="toggle-row">
@@ -456,7 +447,6 @@
     </div>
   </div>
 
-  <!-- Alarm List -->
   <div class="card">
     <div class="card-title">📋 Alarmes Programados</div>
     <div id="alarmList">
@@ -566,14 +556,24 @@ function previewCustomMusic() {
   setTimeout(()=>{ if(customAudioEl && !alarmPlaying) stopCustomMusic(); }, 5000);
 }
 
+// --- FUNÇÃO ATUALIZADA PARA 30 SEGUNDOS ---
 function playCustomMusic() {
   if (!customMusicURL) return;
-  stopCustomMusic();
+  stopCustomMusic(); // Para qualquer música anterior
+  
   customAudioEl = new Audio(customMusicURL);
   customAudioEl.volume = volume / 100;
-  customAudioEl.loop = true;
+  customAudioEl.loop = false; // NÃO coloca em loop
+  
+  // Toca a música
   customAudioEl.play().catch(()=>{});
+
+  // Temporizador para parar após 30 segundos (30000 milissegundos)
+  setTimeout(function() {
+      stopCustomMusic(); // Chama a função para parar
+  }, 30000); 
 }
+// ------------------------------------------
 
 function stopCustomMusic() {
   if (customAudioEl) { customAudioEl.pause(); customAudioEl.currentTime = 0; customAudioEl = null; }
@@ -763,63 +763,63 @@ function setBellInterval(min) {
 }
 
 function startBell() {
-  stopBell();
-  bellTimerID = setInterval(()=>{
-    playBellSound();
-    showToast('🔔 Sino · ' + bellInterval + ' min');
-  }, bellInterval * 60 * 1000);
+  if (bellTimerID) clearInterval(bellTimerID);
+  playBellSound();
+  bellTimerID = setInterval(playBellSound, bellInterval * 60 * 1000);
+  showToast(`🔔 Sino a cada ${bellInterval} min`);
 }
 
 function stopBell() {
-  if(bellTimerID){ clearInterval(bellTimerID); bellTimerID=null; }
+  clearInterval(bellTimerID);
+  showToast('🔔 Sino desativado');
 }
 
-// ─── Clock & Alarm Check ─────────────────────────────────────────────────
-let lastChecked = '';
-function updateClock() {
-  const now = new Date();
-  const hh = pad(now.getHours()), mm = pad(now.getMinutes());
-  document.getElementById('current-time').textContent = `${hh}:${mm}`;
-  const days = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
-  const months = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  document.getElementById('current-date').textContent =
-    `${days[now.getDay()]}, ${now.getDate()} de ${months[now.getMonth()]} de ${now.getFullYear()}`;
-  const key = `${hh}:${mm}`;
-  if(now.getSeconds()<5 && key!==lastChecked) {
-    lastChecked = key;
-    alarms.forEach(a=>{ if(a.active && pad(a.hour)===hh && pad(a.min)===mm) triggerAlarm(a); });
-  }
-}
-
-// ─── Stars ───────────────────────────────────────────────────────────────
-function createStars() {
-  const c = document.getElementById('stars');
-  for(let i=0;i<80;i++) {
-    const s = document.createElement('div'); s.className='star';
-    const sz = Math.random()*2.5+.5;
-    s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${2+Math.random()*4}s;--op:${.3+Math.random()*.7};animation-delay:${Math.random()*5}s;`;
-    c.appendChild(s);
-  }
-}
-
+// ─── UI Utilities ────────────────────────────────────────────────────────
 function showToast(msg) {
-  const el = document.getElementById('bellToast');
-  el.textContent = msg; el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'), 3000);
+  const t = document.getElementById('bellToast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
 }
 
-// ─── Init ────────────────────────────────────────────────────────────────
-createStars();
+// ─── Core Logic ──────────────────────────────────────────────────────────
+function checkAlarms() {
+  const now = new Date();
+  const h = now.getHours();
+  const m = now.getMinutes();
+  const s = now.getSeconds();
+  
+  if (s === 0) {
+    document.getElementById('current-time').textContent = `${pad(h)}:${pad(m)}`;
+    const trigger = alarms.find(a=>a.active && a.hour===h && a.min===m);
+    if(trigger) triggerAlarm(trigger);
+  }
+}
+
+// Init stars
+const stars = document.getElementById('stars');
+for(let i=0; i<50; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  s.style.width = s.style.height = (Math.random()*2+1)+'px';
+  s.style.left = Math.random()*100+'%';
+  s.style.top = Math.random()*100+'%';
+  s.style.setProperty('--d', (Math.random()*2+2)+'s');
+  s.style.setProperty('--op', (Math.random()*0.5+0.3));
+  stars.appendChild(s);
+}
+
+// Tick
+setInterval(()=>{
+  const now = new Date();
+  document.getElementById('current-date').textContent = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  checkAlarms();
+}, 1000);
+
 renderAlarms();
-updateClock();
-setInterval(updateClock, 1000);
-
-document.addEventListener('touchstart', ()=>{ if(audioCtx?.state==='suspended') audioCtx.resume(); });
-document.addEventListener('click', ()=>{ if(audioCtx?.state==='suspended') audioCtx.resume(); });
-
-document.getElementById('alarmHour').addEventListener('change', function(){ this.value=pad(Math.max(0,Math.min(23,parseInt(this.value)||0))); });
-document.getElementById('alarmMin').addEventListener('change', function(){ this.value=pad(Math.max(0,Math.min(59,parseInt(this.value)||0))); });
+// Fix range track
+const range = document.getElementById('volumeRange');
+range.style.setProperty('--pct', range.value + '%');
 </script>
 </body>
 </html>
-
