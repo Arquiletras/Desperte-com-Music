@@ -556,7 +556,7 @@ function previewCustomMusic() {
   setTimeout(()=>{ if(customAudioEl && !alarmPlaying) stopCustomMusic(); }, 5000);
 }
 
-// --- FUNÇÃO ATUALIZADA PARA REPETIR SEMPRE ---
+// --- FUNÇÃO ATUALIZADA PARA LOOP NATIVO ---
 function playCustomMusic() {
   if (!customMusicURL) return;
   stopCustomMusic(); // Para qualquer música anterior
@@ -564,7 +564,7 @@ function playCustomMusic() {
   customAudioEl = new Audio(customMusicURL);
   customAudioEl.volume = volume / 100;
   
-  // A mágica do loop está aqui:
+  // NATIVO: Repete automaticamente quando termina
   customAudioEl.loop = true; 
   
   // Tenta tocar
@@ -703,10 +703,6 @@ function triggerAlarm(alarm) {
   document.getElementById('alarmOverlay').classList.add('show');
   selectedSound = alarm.sound;
   playAlarmSound();
-  
-  // --- INTERVALO REMOVIDO PARA USAR O LOOP NATIVO ---
-  // alarmInterval = setInterval(()=>{ if(alarmPlaying) playAlarmSound(); }, 3500);
-  // ----------------------------------------------------
   
   if(!alarm.repeat) { alarms = alarms.filter(a=>a.id!==alarm.id); saveAlarms(); renderAlarms(); }
 }
