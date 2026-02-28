@@ -3,822 +3,94 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#1a0a2e">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Desperte">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<title>Desperte com Música</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<title>Despertador</title>
 <style>
-  :root {
-    --bg: #0d0718;
-    --surface: #1a0f2e;
-    --card: #221540;
-    --accent: #c77dff;
-    --gold: #ffd166;
-    --rose: #ff6b9d;
-    --text: #f0e6ff;
-    --muted: #7b68a0;
-    --glow: rgba(199,125,255,0.35);
-  }
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Sans', sans-serif;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-  body::before {
-    content:'';
-    position:fixed; inset:0;
-    background:
-      radial-gradient(ellipse 60% 50% at 20% 10%, rgba(199,125,255,0.12) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 40% at 80% 80%, rgba(255,107,157,0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 40% 40% at 50% 50%, rgba(255,209,102,0.04) 0%, transparent 70%);
-    pointer-events:none; z-index:0;
-  }
-  .stars { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
-  .star {
-    position:absolute; border-radius:50%; background:white;
-    animation:twinkle var(--d,3s) ease-in-out infinite; opacity:0;
-  }
-  @keyframes twinkle {
-    0%,100%{opacity:0;transform:scale(.8)}
-    50%{opacity:var(--op,.7);transform:scale(1.2)}
-  }
-  .container { position:relative; z-index:1; max-width:420px; margin:0 auto; padding:24px 20px 60px; }
-
-  /* Install banner */
-  .install-banner {
-    background: linear-gradient(135deg, rgba(199,125,255,0.2), rgba(255,107,157,0.15));
-    border: 1px solid rgba(199,125,255,0.3);
-    border-radius: 16px;
-    padding: 14px 16px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    transition: transform 0.15s;
-  }
-  .install-banner:active { transform: scale(0.98); }
-  .install-banner.hidden { display: none; }
-  .install-icon { font-size: 28px; flex-shrink: 0; }
-  .install-text strong { display: block; font-size: 14px; color: var(--accent); }
-  .install-text span { font-size: 12px; color: var(--muted); }
-
-  /* Notification banner */
-  .notif-banner {
-    background: rgba(255,209,102,0.1);
-    border: 1px solid rgba(255,209,102,0.25);
-    border-radius: 16px;
-    padding: 14px 16px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    transition: transform 0.15s;
-  }
-  .notif-banner:active { transform: scale(0.98); }
-  .notif-banner.hidden { display: none; }
-  .notif-text strong { display: block; font-size: 14px; color: var(--gold); }
-  .notif-text span { font-size: 12px; color: var(--muted); }
-
-  .header { text-align:center; margin-bottom:28px; padding-top:8px; }
-  .logo-icon { font-size:48px; display:block; margin-bottom:8px; filter:drop-shadow(0 0 16px var(--glow)); animation:float 4s ease-in-out infinite; }
-  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-  .header h1 {
-    font-family:'Playfair Display',serif; font-size:26px; font-weight:900;
-    background:linear-gradient(135deg,var(--accent),var(--gold));
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
-    letter-spacing:-0.5px; line-height:1.1;
-  }
-  .header p { color:var(--muted); font-size:13px; margin-top:6px; font-weight:300; letter-spacing:.5px; }
-
-  .clock-display { text-align:center; margin-bottom:24px; }
-  #current-time {
-    font-family:'Playfair Display',serif; font-size:72px; font-weight:900; line-height:1;
-    background:linear-gradient(180deg,#fff 0%,var(--accent) 100%);
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
-    letter-spacing:-3px; filter:drop-shadow(0 0 30px var(--glow));
-  }
-  #current-date { color:var(--muted); font-size:14px; margin-top:6px; text-transform:capitalize; letter-spacing:1px; }
-
-  .card {
-    background:var(--card); border:1px solid rgba(199,125,255,0.15);
-    border-radius:20px; padding:20px; margin-bottom:16px; position:relative; overflow:hidden;
-    backdrop-filter:blur(10px);
-  }
-  .card::before {
-    content:''; position:absolute; top:0; left:0; right:0; height:1px;
-    background:linear-gradient(90deg,transparent,rgba(199,125,255,0.4),transparent);
-  }
-  .card-title {
-    font-family:'Playfair Display',serif; font-size:13px; letter-spacing:2px;
-    text-transform:uppercase; color:var(--accent); margin-bottom:16px;
-    display:flex; align-items:center; gap:8px;
-  }
-
-  .time-picker { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:16px; }
-  .time-unit { display:flex; flex-direction:column; align-items:center; gap:4px; }
-  .time-unit label { font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
-  .time-scroll {
-    background:var(--surface); border:1px solid rgba(199,125,255,0.2); border-radius:12px;
-    padding:12px 16px; font-family:'Playfair Display',serif; font-size:36px; font-weight:700;
-    color:var(--text); width:90px; text-align:center; outline:none; -webkit-appearance:none;
-    cursor:pointer; transition:border-color .2s, box-shadow .2s;
-  }
-  .time-scroll:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(199,125,255,0.15); }
-  .time-sep { font-family:'Playfair Display',serif; font-size:40px; color:var(--accent); opacity:.6; line-height:1; margin-top:10px; }
-
-  .alarm-label-input {
-    width:100%; background:var(--surface); border:1px solid rgba(199,125,255,0.2);
-    border-radius:12px; padding:10px 14px; color:var(--text); font-family:'DM Sans',sans-serif;
-    font-size:14px; outline:none; margin-bottom:16px; transition:border-color .2s;
-  }
-  .alarm-label-input:focus { border-color:var(--accent); }
-  .alarm-label-input::placeholder { color:var(--muted); }
-
-  .sound-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
-  .sound-btn {
-    background:var(--surface); border:1px solid rgba(199,125,255,0.15); border-radius:12px;
-    padding:10px 6px; cursor:pointer; text-align:center; transition:all .2s;
-    color:var(--text); font-size:11px; font-family:'DM Sans',sans-serif;
-  }
-  .sound-btn .sound-icon { display:block; font-size:22px; margin-bottom:4px; }
-  .sound-btn.active { background:rgba(199,125,255,0.2); border-color:var(--accent); box-shadow:0 0 12px rgba(199,125,255,0.2); }
-  .sound-btn:active { transform:scale(0.95); }
-
-  .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-top:1px solid rgba(199,125,255,0.08); }
-  .toggle-row:first-child { border-top:none; }
-  .toggle-label { display:flex; flex-direction:column; gap:2px; }
-  .toggle-label span:first-child { font-size:14px; font-weight:500; }
-  .toggle-label span:last-child { font-size:11px; color:var(--muted); }
-  .toggle { position:relative; width:48px; height:26px; flex-shrink:0; }
-  .toggle input { display:none; }
-  .toggle-track {
-    position:absolute; inset:0; background:rgba(255,255,255,0.1); border-radius:13px;
-    cursor:pointer; transition:background .3s; border:1px solid rgba(199,125,255,0.2);
-  }
-  .toggle-thumb {
-    position:absolute; top:3px; left:3px; width:20px; height:20px;
-    background:var(--muted); border-radius:50%; transition:all .3s; box-shadow:0 2px 4px rgba(0,0,0,0.3);
-  }
-  .toggle input:checked~.toggle-track { background:linear-gradient(135deg,var(--accent),var(--rose)); border-color:transparent; }
-  .toggle input:checked~.toggle-track .toggle-thumb { left:25px; background:white; }
-
-  .volume-row { display:flex; align-items:center; gap:12px; padding-top:10px; border-top:1px solid rgba(199,125,255,0.08); }
-  .volume-row span { font-size:18px; }
-  input[type=range] {
-    flex:1; -webkit-appearance:none; height:4px;
-    background:linear-gradient(to right,var(--accent) 0%,var(--accent) var(--pct,70%),rgba(199,125,255,0.2) var(--pct,70%));
-    border-radius:2px; outline:none; cursor:pointer;
-  }
-  input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance:none; width:18px; height:18px; background:white;
-    border-radius:50%; border:2px solid var(--accent); box-shadow:0 0 8px var(--glow);
-  }
-
-  .btn-add {
-    width:100%; padding:16px; background:linear-gradient(135deg,var(--accent),var(--rose));
-    border:none; border-radius:16px; color:white; font-family:'Playfair Display',serif;
-    font-size:18px; font-weight:700; cursor:pointer; position:relative; overflow:hidden;
-    transition:transform .15s, box-shadow .15s; box-shadow:0 8px 32px rgba(199,125,255,0.3);
-    letter-spacing:.5px; margin-bottom:16px;
-  }
-  .btn-add::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 100%); }
-  .btn-add:active { transform:scale(0.97); }
-
-  .alarm-item {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:14px 0; border-bottom:1px solid rgba(199,125,255,0.08);
-    animation:slideIn .3s ease;
-  }
-  @keyframes slideIn { from{opacity:0;transform:translateX(-20px)} to{opacity:1;transform:translateX(0)} }
-  .alarm-item:last-child { border-bottom:none; }
-  .alarm-info { flex:1; }
-  .alarm-time-text { font-family:'Playfair Display',serif; font-size:28px; font-weight:700; line-height:1; color:var(--text); }
-  .alarm-time-text.active-alarm { color:var(--gold); text-shadow:0 0 20px rgba(255,209,102,0.5); }
-  .alarm-meta { font-size:11px; color:var(--muted); margin-top:3px; }
-  .alarm-actions { display:flex; align-items:center; gap:10px; }
-  .btn-delete {
-    background:none; border:none; color:var(--muted); font-size:18px;
-    cursor:pointer; padding:4px 8px; border-radius:8px; transition:color .2s, background .2s;
-  }
-  .btn-delete:hover { color:var(--rose); background:rgba(255,107,157,0.1); }
-
-  .bell-options { display:flex; gap:8px; flex-wrap:wrap; }
-  .bell-opt {
-    flex:1; min-width:60px; background:var(--surface); border:1px solid rgba(199,125,255,0.15);
-    border-radius:10px; padding:8px 4px; cursor:pointer; text-align:center; font-size:12px;
-    color:var(--muted); font-family:'DM Sans',sans-serif; transition:all .2s;
-  }
-  .bell-opt.active { background:rgba(255,209,102,0.15); border-color:var(--gold); color:var(--gold); }
-
-  .alarm-overlay {
-    display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:100;
-    align-items:center; justify-content:center; flex-direction:column;
-    backdrop-filter:blur(12px); text-align:center; padding:40px;
-  }
-  .alarm-overlay.show { display:flex; }
-  .alarm-overlay-icon { font-size:80px; animation:pulse .8s ease-in-out infinite alternate; filter:drop-shadow(0 0 30px var(--gold)); margin-bottom:16px; }
-  @keyframes pulse { from{transform:scale(1) rotate(-5deg)} to{transform:scale(1.1) rotate(5deg)} }
-  .alarm-overlay h2 {
-    font-family:'Playfair Display',serif; font-size:56px; font-weight:900;
-    background:linear-gradient(135deg,var(--gold),var(--accent));
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:8px;
-  }
-  .alarm-overlay p { color:var(--muted); margin-bottom:24px; font-size:14px; }
-  .alarm-btns { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
-  .btn-stop {
-    background:linear-gradient(135deg,var(--gold),var(--rose)); border:none; border-radius:50px;
-    padding:16px 36px; color:white; font-family:'Playfair Display',serif; font-size:20px;
-    font-weight:700; cursor:pointer; box-shadow:0 8px 32px rgba(255,209,102,0.4); transition:transform .15s;
-  }
-  .btn-snooze {
-    background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:50px;
-    padding:16px 28px; color:white; font-family:'DM Sans',sans-serif; font-size:16px;
-    cursor:pointer; transition:transform .15s;
-  }
-  .btn-stop:active, .btn-snooze:active { transform:scale(0.95); }
-
-  .bell-toast {
-    position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-100px);
-    background:var(--card); border:1px solid rgba(255,209,102,0.3); border-radius:50px;
-    padding:10px 24px; font-size:14px; display:flex; align-items:center; gap:8px; z-index:99;
-    transition:transform .4s cubic-bezier(0.34,1.56,0.64,1); white-space:nowrap;
-    box-shadow:0 4px 20px rgba(0,0,0,0.4); color:var(--gold);
-  }
-  .bell-toast.show { transform:translateX(-50%) translateY(0); }
-
-  .music-picker-row { margin-top: 12px; }
-
-  .btn-music {
-    width: 100%;
-    background: var(--surface);
-    border: 1px dashed rgba(199,125,255,0.35);
-    border-radius: 12px;
-    padding: 12px 16px;
-    color: var(--accent);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.2s;
-  }
-  .btn-music:active { transform: scale(0.98); background: rgba(199,125,255,0.1); }
-  .btn-music.has-music { border-style: solid; border-color: var(--accent); color: var(--text); }
-
-  .music-selected {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(199,125,255,0.12);
-    border: 1px solid rgba(199,125,255,0.3);
-    border-radius: 12px;
-    padding: 10px 14px;
-    margin-top: 8px;
-    gap: 8px;
-  }
-  .music-selected.hidden { display: none; }
-  .music-name {
-    font-size: 13px;
-    color: var(--accent);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex: 1;
-  }
-  .music-name::before { content: '🎵 '; }
-  .btn-clear-music {
-    background: none;
-    border: none;
-    color: var(--muted);
-    font-size: 16px;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 6px;
-    flex-shrink: 0;
-    transition: color 0.2s;
-  }
-  .btn-clear-music:hover { color: var(--rose); }
+  body { font-family: sans-serif; text-align: center; background: #121212; color: white; padding: 20px; }
+  .card { background: #1e1e1e; padding: 20px; border-radius: 15px; margin: 10px auto; max-width: 300px; }
+  input, button { padding: 12px; font-size: 16px; margin: 8px; border-radius: 10px; border: none; width: 90%; }
+  button { background: #bb86fc; color: black; font-weight: bold; cursor: pointer; }
+  #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 100; flex-direction: column; justify-content: center; align-items: center; }
+  #overlay.show { display: flex; }
+  .music-info { font-size: 14px; color: #aaa; margin-top: -5px; margin-bottom: 10px; }
 </style>
 </head>
 <body>
-<div class="stars" id="stars"></div>
 
-<div class="alarm-overlay" id="alarmOverlay">
-  <div class="alarm-overlay-icon">🎵</div>
-  <h2 id="overlayTime">07:00</h2>
-  <p id="overlayLabel">Hora de despertar!</p>
-  <div class="alarm-btns">
-    <button class="btn-snooze" onclick="snoozeAlarm()">💤 Soneca 5 min</button>
-    <button class="btn-stop" onclick="stopAlarm()">⏹ Parar</button>
-  </div>
+<h1>⏰ Despertador Flex</h1>
+
+<div class="card">
+  <input type="time" id="alarmTime" value="07:00">
+  <br>
+  <input type="file" id="musicFile" accept="audio/*" style="display:none" onchange="handleMusicFile(this)">
+  <button onclick="document.getElementById('musicFile').click()">📂 Selecionar Música</button>
+  <div class="music-info" id="musicName">Nenhuma música selecionada</div>
+  
+  <button style="background: #03dac6;" onclick="setAlarm()">Ativar Alarme</button>
 </div>
 
-<div class="bell-toast" id="bellToast">🔔 Sino</div>
-
-<div class="container">
-
-  <div class="install-banner hidden" id="installBanner" onclick="installApp()">
-    <div class="install-icon">📲</div>
-    <div class="install-text">
-      <strong>Instalar como App</strong>
-      <span>Toque para adicionar à tela inicial</span>
-    </div>
-  </div>
-
-  <div class="notif-banner" id="notifBanner" onclick="requestNotif()">
-    <div class="install-icon">🔔</div>
-    <div class="notif-text">
-      <strong>Ativar notificações</strong>
-      <span>Para alarmes funcionarem em segundo plano</span>
-    </div>
-  </div>
-
-  <div class="header">
-    <span class="logo-icon">🎵</span>
-    <h1>Desperte com Música</h1>
-    <p>Seu despertador musical inteligente</p>
-  </div>
-
-  <div class="clock-display">
-    <div id="current-time">00:00</div>
-    <div id="current-date">—</div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">⏰ Programar Alarme</div>
-    <div class="time-picker">
-      <div class="time-unit">
-        <label>hora</label>
-        <input type="number" class="time-scroll" id="alarmHour" min="0" max="23" value="07">
-      </div>
-      <div class="time-sep">:</div>
-      <div class="time-unit">
-        <label>min</label>
-        <input type="number" class="time-scroll" id="alarmMin" min="0" max="59" value="00">
-      </div>
-    </div>
-
-    <input type="text" class="alarm-label-input" id="alarmLabelInput" placeholder="Nome do alarme (opcional)">
-
-    <div class="card-title" style="margin-top:4px">🎶 Som do Alarme</div>
-    <div class="sound-grid">
-      <button class="sound-btn active" onclick="selectSound('piano','Piano Suave')" id="snd-piano"><span class="sound-icon">🎹</span>Piano Suave</button>
-      <button class="sound-btn" onclick="selectSound('birds','Pássaros')" id="snd-birds"><span class="sound-icon">🐦</span>Pássaros</button>
-      <button class="sound-btn" onclick="selectSound('bell','Sino Zen')" id="snd-bell"><span class="sound-icon">🔔</span>Sino Zen</button>
-      <button class="sound-btn" onclick="selectSound('harp','Harpa')" id="snd-harp"><span class="sound-icon">🎸</span>Harpa</button>
-      <button class="sound-btn" onclick="selectSound('ocean','Oceano')" id="snd-ocean"><span class="sound-icon">🌊</span>Oceano</button>
-      <button class="sound-btn" onclick="selectSound('trumpet','Trompete')" id="snd-trumpet"><span class="sound-icon">🎺</span>Trompete</button>
-    </div>
-
-    <div class="music-picker-row" id="musicPickerRow">
-      <input type="file" id="musicFile" accept="audio/*" style="display:none" onchange="handleMusicFile(this)">
-      <button class="btn-music" onclick="document.getElementById('musicFile').click()" id="btnPickMusic">
-        <span>📂</span> Escolher música do celular
-      </button>
-      <div class="music-selected hidden" id="musicSelected">
-        <span class="music-name" id="musicName">—</span>
-        <button class="btn-clear-music" onclick="clearMusic()">✕</button>
-      </div>
-    </div>
-
-    <div class="volume-row">
-      <span>🔇</span>
-      <input type="range" id="volumeRange" min="0" max="100" value="70" oninput="updateVolume(this)">
-      <span>🔊</span>
-    </div>
-
-    <div class="toggle-row" style="margin-top:12px">
-      <div class="toggle-label">
-        <span>🔁 Repetir todos os dias</span>
-        <span>Alarme se repete diariamente</span>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="repeatDaily">
-        <div class="toggle-track"><div class="toggle-thumb"></div></div>
-      </label>
-    </div>
-
-    <button class="btn-add" onclick="addAlarm()">✦ Adicionar Alarme</button>
-  </div>
-
-  <div class="card">
-    <div class="card-title">🔔 Sino a Cada Intervalo</div>
-    <div class="toggle-row">
-      <div class="toggle-label">
-        <span>Ativar sino periódico</span>
-        <span>Emite um sino no intervalo escolhido</span>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="bellToggle" onchange="toggleBell()">
-        <div class="toggle-track"><div class="toggle-thumb"></div></div>
-      </label>
-    </div>
-    <div style="margin-top:12px">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Intervalo:</div>
-      <div class="bell-options">
-        <button class="bell-opt" onclick="setBellInterval(15)" id="bi-15">15 min</button>
-        <button class="bell-opt active" onclick="setBellInterval(30)" id="bi-30">30 min</button>
-        <button class="bell-opt" onclick="setBellInterval(60)" id="bi-60">1 hora</button>
-        <button class="bell-opt" onclick="setBellInterval(120)" id="bi-120">2 horas</button>
-      </div>
-    </div>
-    <div class="toggle-row" style="margin-top:8px">
-      <div class="toggle-label">
-        <span>🎵 Tom do sino</span>
-        <span id="bellSoundLabel">Tigela Zen</span>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button class="sound-btn" style="padding:6px 10px;font-size:18px" onclick="selectBellSound('ding')" id="bs-ding" title="Sino">🔔</button>
-        <button class="sound-btn active" style="padding:6px 10px;font-size:18px" onclick="selectBellSound('bowl')" id="bs-bowl" title="Tigela">🎶</button>
-        <button class="sound-btn" style="padding:6px 10px;font-size:18px" onclick="selectBellSound('chime')" id="bs-chime" title="Carrilhão">✨</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">📋 Alarmes Programados</div>
-    <div id="alarmList">
-      <div class="empty-state">Nenhum alarme programado ainda.<br>Adicione seu primeiro alarme acima ✦</div>
-    </div>
-  </div>
-
+<div id="overlay" onclick="stopAlarm()"> <h1>🚨 HORA DE ACORDAR! 🚨</h1>
+  <p id="overlayLabel">🎵</p>
+  <button style="background: #ff7597;">PARAR MÚSICA</button>
 </div>
 
 <script>
-// ─── PWA ─────────────────────────────────────────────────────────────────
-let deferredPrompt = null;
+let alarmAudio = new Audio();
+let alarmTimeout;
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(console.error);
-}
-
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
-  document.getElementById('installBanner').classList.remove('hidden');
-});
-
-async function installApp() {
-  if (!deferredPrompt) return;
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice;
-  if (outcome === 'accepted') document.getElementById('installBanner').classList.add('hidden');
-  deferredPrompt = null;
-}
-
-window.addEventListener('appinstalled', () => {
-  document.getElementById('installBanner').classList.add('hidden');
-});
-
-async function requestNotif() {
-  if (!('Notification' in window)) return;
-  const perm = await Notification.requestPermission();
-  if (perm === 'granted') {
-    document.getElementById('notifBanner').classList.add('hidden');
-    scheduleAllAlarmNotifications();
-    showToast('✦ Notificações ativadas!');
-  }
-}
-
-// Hide notif banner if already granted
-if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-  document.getElementById('notifBanner').classList.add('hidden');
-}
-
-// ─── Audio Engine ────────────────────────────────────────────────────────
-let audioCtx = null;
-let alarmInterval = null;
-let alarmPlaying = false;
-let bellTimerID = null;
-let volume = 70;
-let selectedSound = 'piano';
-let selectedBellSound = 'bowl';
-
-function getAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  return audioCtx;
-}
-
-function playTone(freq, type='sine', duration=0.8, vol=0.4, delay=0) {
-  const ctx = getAudio();
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.connect(gain); gain.connect(ctx.destination);
-  osc.type = type; osc.frequency.value = freq;
-  const t = ctx.currentTime + delay;
-  gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(vol * (volume/100), t + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-  osc.start(t); osc.stop(t + duration + 0.05);
-}
-
-// ─── Música personalizada ────────────────────────────────────────────────
-let customMusicURL = null;
-let customMusicName = null;
-let customAudioEl = null;
-
+// 1. MÁGICA: Carrega o arquivo do celular para a memória do navegador
 function handleMusicFile(input) {
   const file = input.files[0];
-  if (!file) return;
-  if (customMusicURL) URL.revokeObjectURL(customMusicURL);
-  customMusicURL = URL.createObjectURL(file);
-  customMusicName = file.name.replace(/\.[^/.]+$/, '');
-  document.getElementById('musicName').textContent = customMusicName;
-  document.getElementById('musicSelected').classList.remove('hidden');
-  document.getElementById('btnPickMusic').innerHTML = '<span>📂</span> Trocar música';
-  document.getElementById('btnPickMusic').classList.add('has-music');
-  selectedSound = 'custom';
-  document.querySelectorAll('.sound-grid .sound-btn').forEach(b=>b.classList.remove('active'));
-  showToast('🎵 ' + customMusicName + ' selecionada!');
-  previewCustomMusic();
-}
-
-function previewCustomMusic() {
-  if (!customMusicURL) return;
-  stopCustomMusic();
-  customAudioEl = new Audio(customMusicURL);
-  customAudioEl.volume = volume / 100;
-  customAudioEl.loop = false;
-  customAudioEl.play().catch(()=>{});
-  setTimeout(()=>{ if(customAudioEl && !alarmPlaying) stopCustomMusic(); }, 5000);
-}
-
-// --- FUNÇÃO ATUALIZADA COM LOOP ---
-function playCustomMusic() {
-  if (!customMusicURL) return;
-  stopCustomMusic(); // Para qualquer música anterior
-  
-  customAudioEl = new Audio(customMusicURL);
-  customAudioEl.volume = volume / 100;
-  customAudioEl.loop = true; // ATIVAR LOOP AQUI!
-  
-  // Toca a música
-  customAudioEl.play().catch(()=>{});
-  
-  // O setTimeout de 30 segundos foi removido!
-}
-// ------------------------------------------
-
-function stopCustomMusic() {
-  if (customAudioEl) { customAudioEl.pause(); customAudioEl.currentTime = 0; customAudioEl = null; }
-}
-
-function clearMusic() {
-  stopCustomMusic();
-  if (customMusicURL) { URL.revokeObjectURL(customMusicURL); customMusicURL = null; }
-  customMusicName = null;
-  document.getElementById('musicSelected').classList.add('hidden');
-  document.getElementById('btnPickMusic').innerHTML = '<span>📂</span> Escolher música do celular';
-  document.getElementById('btnPickMusic').classList.remove('has-music');
-  document.getElementById('musicFile').value = '';
-  selectedSound = 'piano';
-  document.getElementById('snd-piano').classList.add('active');
-}
-
-function playAlarmSound() {
-  if (selectedSound === 'custom') { playCustomMusic(); return; }
-  switch(selectedSound) {
-    case 'piano': [261.63,329.63,392,523.25].forEach((f,i)=>playTone(f,'sine',1.5,0.3,i*.18)); break;
-    case 'birds': for(let i=0;i<6;i++) playTone(800+Math.random()*800,'sine',0.2,0.15,i*.12+Math.random()*.05); break;
-    case 'bell': playTone(528,'sine',3,0.5,0); playTone(264,'sine',3,0.2,0); break;
-    case 'harp': [880,783.99,659.25,523.25,392].forEach((f,i)=>playTone(f,'triangle',1.2,0.3,i*.15)); break;
-    case 'ocean': [100,150,200].forEach(f=>{
-      const ctx=getAudio(),osc=ctx.createOscillator(),g=ctx.createGain();
-      osc.connect(g);g.connect(ctx.destination);osc.type='sawtooth';osc.frequency.value=f;
-      const t=ctx.currentTime;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05*volume/100,t+.5);
-      g.gain.linearRampToValueAtTime(0,t+2.5);osc.start(t);osc.stop(t+3);
-    }); break;
-    case 'trumpet': [392,493.88,587.33,783.99].forEach((f,i)=>playTone(f,'square',0.6,0.2,i*.2)); break;
+  if (file) {
+    alarmAudio.src = URL.createObjectURL(file);
+    document.getElementById('musicName').textContent = file.name;
+    document.getElementById('overlayLabel').textContent = "🎵 " + file.name;
+    // Tenta carregar o áudio na memória
+    alarmAudio.load();
   }
 }
 
-function playBellSound() {
-  switch(selectedBellSound) {
-    case 'ding': playTone(1760,'sine',1.5,0.5); break;
-    case 'bowl': playTone(432,'sine',3,0.5); playTone(648,'sine',2,0.2,0.1); break;
-    case 'chime': [1046.5,1318.5,1568].forEach((f,i)=>playTone(f,'triangle',1.2,0.25,i*.15)); break;
-  }
-}
-
-function selectSound(key, label) {
-  selectedSound = key;
-  document.querySelectorAll('.sound-grid .sound-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('snd-'+key)?.classList.add('active');
-  setTimeout(playAlarmSound, 50);
-}
-
-function selectBellSound(key) {
-  selectedBellSound = key;
-  ['ding','bowl','chime'].forEach(k=>document.getElementById('bs-'+k)?.classList.remove('active'));
-  document.getElementById('bs-'+key)?.classList.add('active');
-  const labels = {ding:'Sino Claro', bowl:'Tigela Zen', chime:'Carrilhão'};
-  document.getElementById('bellSoundLabel').textContent = labels[key];
-  playBellSound();
-}
-
-function updateVolume(el) {
-  volume = parseInt(el.value);
-  el.style.setProperty('--pct', volume + '%');
-}
-
-// ─── Alarms ─────────────────────────────────────────────────────────────
-let alarms = JSON.parse(localStorage.getItem('dcm_alarms') || '[]');
-const soundIcons = {piano:'🎹',birds:'🐦',bell:'🔔',harp:'🎸',ocean:'🌊',trumpet:'🎺'};
-
-function pad(n){ return String(n).padStart(2,'0'); }
-
-function addAlarm() {
-  const h = Math.max(0, Math.min(23, parseInt(document.getElementById('alarmHour').value)||0));
-  const m = Math.max(0, Math.min(59, parseInt(document.getElementById('alarmMin').value)||0));
-  const repeat = document.getElementById('repeatDaily').checked;
-  const label = document.getElementById('alarmLabelInput').value.trim() || soundIcons[selectedSound] + ' ' + selectedSound;
-  const alarm = { id: Date.now(), hour: h, min: m, sound: selectedSound, repeat, active: true, label };
-  alarms.push(alarm);
-  saveAlarms();
-  renderAlarms();
-  scheduleAlarmNotification(alarm);
-  showToast(`✦ Alarme às ${pad(h)}:${pad(m)} adicionado`);
-  [261.63,329.63,392,523.25].forEach((f,i)=>playTone(f,'sine',1.2,0.25,i*.15));
-  document.getElementById('alarmLabelInput').value = '';
-}
-
-function saveAlarms() { localStorage.setItem('dcm_alarms', JSON.stringify(alarms)); }
-
-function deleteAlarm(id) {
-  alarms = alarms.filter(a=>a.id!==id);
-  saveAlarms(); renderAlarms();
-}
-
-function toggleAlarmActive(id) {
-  const a = alarms.find(x=>x.id===id);
-  if(a){ a.active=!a.active; saveAlarms(); renderAlarms(); }
-}
-
-function renderAlarms() {
-  const el = document.getElementById('alarmList');
-  if(!alarms.length) {
-    el.innerHTML = '<div class="empty-state">Nenhum alarme programado ainda.<br>Adicione seu primeiro alarme acima ✦</div>';
+function setAlarm() {
+  const timeInput = document.getElementById('alarmTime').value;
+  if (!alarmAudio.src) {
+    alert("Por favor, selecione uma música primeiro!");
     return;
   }
-  el.innerHTML = alarms.map(a=>`
-    <div class="alarm-item">
-      <div class="alarm-info">
-        <div class="alarm-time-text ${a.active?'active-alarm':''}" style="${!a.active?'opacity:0.4':''}">
-          ${pad(a.hour)}:${pad(a.min)}
-        </div>
-        <div class="alarm-meta">${soundIcons[a.sound]||'🎵'} ${a.label} · ${a.repeat?'Diário':'Uma vez'}</div>
-      </div>
-      <div class="alarm-actions">
-        <label class="toggle">
-          <input type="checkbox" ${a.active?'checked':''} onchange="toggleAlarmActive(${a.id})">
-          <div class="toggle-track"><div class="toggle-thumb"></div></div>
-        </label>
-        <button class="btn-delete" onclick="deleteAlarm(${a.id})">🗑</button>
-      </div>
-    </div>
-  `).join('');
+
+  const now = new Date();
+  const alarm = new Date();
+  const [hours, minutes] = timeInput.split(':');
+  alarm.setHours(hours);
+  alarm.setMinutes(minutes);
+  alarm.setSeconds(0);
+  
+  if (alarm < now) alarm.setDate(alarm.getDate() + 1);
+  
+  const msUntilAlarm = alarm - now;
+  clearTimeout(alarmTimeout);
+  
+  alarmTimeout = setTimeout(() => {
+    triggerAlarm();
+  }, msUntilAlarm);
+  
+  alert(`Alarme definido para ${timeInput}`);
 }
 
-function triggerAlarm(alarm) {
-  alarmPlaying = true;
-  document.getElementById('overlayTime').textContent = `${pad(alarm.hour)}:${pad(alarm.min)}`;
-  document.getElementById('overlayLabel').textContent = `${soundIcons[alarm.sound]||'🎵'} ${alarm.label}`;
-  document.getElementById('alarmOverlay').classList.add('show');
-  selectedSound = alarm.sound;
-  playAlarmSound();
-  alarmInterval = setInterval(()=>{ if(alarmPlaying) playAlarmSound(); }, 3500);
-  if(!alarm.repeat) { alarms = alarms.filter(a=>a.id!==alarm.id); saveAlarms(); renderAlarms(); }
+function triggerAlarm() {
+  document.getElementById('overlay').classList.add('show');
+  
+  // Tenta tocar com loop
+  alarmAudio.loop = true;
+  alarmAudio.play().catch(e => {
+    console.log("Bloqueado pelo navegador. Toque na tela para liberar.", e);
+  });
 }
 
 function stopAlarm() {
-  alarmPlaying = false;
-  clearInterval(alarmInterval);
-  stopCustomMusic();
-  document.getElementById('alarmOverlay').classList.remove('show');
+  alarmAudio.pause();
+  alarmAudio.currentTime = 0;
+  document.getElementById('overlay').classList.remove('show');
 }
-
-function snoozeAlarm() {
-  stopAlarm();
-  const snoozeTime = new Date(Date.now() + 5*60*1000);
-  const h = snoozeTime.getHours(), m = snoozeTime.getMinutes();
-  const snooze = { id: Date.now(), hour: h, min: m, sound: selectedSound, repeat: false, active: true, label: '💤 Soneca' };
-  alarms.push(snooze);
-  saveAlarms(); renderAlarms();
-  showToast(`💤 Soneca: ${pad(h)}:${pad(m)}`);
-}
-
-// ─── Notifications ───────────────────────────────────────────────────────
-function scheduleAlarmNotification(alarm) {
-  if (Notification.permission !== 'granted') return;
-  if (!navigator.serviceWorker.controller) return;
-  const now = new Date();
-  let target = new Date();
-  target.setHours(alarm.hour, alarm.min, 0, 0);
-  if (target <= now) target.setDate(target.getDate() + 1);
-  const delay = target - now;
-  navigator.serviceWorker.controller.postMessage({ type: 'SCHEDULE_ALARM', alarm, delay });
-}
-
-function scheduleAllAlarmNotifications() {
-  alarms.filter(a=>a.active).forEach(scheduleAlarmNotification);
-}
-
-// ─── Bell ────────────────────────────────────────────────────────────────
-let bellInterval = 30;
-let bellActive = false;
-
-function toggleBell() {
-  bellActive = document.getElementById('bellToggle').checked;
-  if(bellActive) startBell(); else stopBell();
-  // Also schedule via SW
-  if(bellActive && Notification.permission==='granted' && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage({
-      type:'SCHEDULE_BELL', interval:bellInterval,
-      label: {ding:'Sino Claro',bowl:'Tigela Zen',chime:'Carrilhão'}[selectedBellSound]
-    });
-  }
-}
-
-function setBellInterval(min) {
-  bellInterval = min;
-  document.querySelectorAll('.bell-opt').forEach(b=>b.classList.remove('active'));
-  document.getElementById('bi-'+min)?.classList.add('active');
-  if(bellActive) {
-      stopBell();
-      startBell();
-  }
-}
-
-function startBell() {
-    if(bellTimerID) clearInterval(bellTimerID);
-    bellTimerID = setInterval(playBellSound, bellInterval * 60 * 1000);
-    showToast(`🔔 Sino a cada ${bellInterval} min`);
-}
-
-function stopBell() {
-    clearInterval(bellTimerID);
-    bellTimerID = null;
-    showToast('🔔 Sino desativado');
-}
-
-// ─── Utils ───────────────────────────────────────────────────────────────
-function showToast(text) {
-  const toast = document.getElementById('bellToast');
-  toast.textContent = text;
-  toast.classList.add('show');
-  setTimeout(()=>toast.classList.remove('show'), 2000);
-}
-
-// ─── Clock Setup ─────────────────────────────────────────────────────────
-function updateClock() {
-  const now = new Date();
-  const h = now.getHours();
-  const m = now.getMinutes();
-  const s = now.getSeconds();
-  
-  document.getElementById('current-time').textContent = `${pad(h)}:${pad(m)}`;
-  document.getElementById('current-date').textContent = now.toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'short'});
-  
-  // Check Alarms
-  if (s === 0 && !alarmPlaying) {
-    const trigger = alarms.find(a => a.active && a.hour === h && a.min === m);
-    if (trigger) triggerAlarm(trigger);
-  }
-}
-
-// ─── Background Stars ──────────────────────────────────────────────────
-function createStars() {
-  const container = document.getElementById('stars');
-  for(let i=0;i<50;i++) {
-    const star = document.createElement('div');
-    star.className = 'star';
-    star.style.width = star.style.height = Math.random()*3+'px';
-    star.style.top = Math.random()*100+'%';
-    star.style.left = Math.random()*100+'%';
-    star.style.setProperty('--d', Math.random()*3+2+'s');
-    star.style.setProperty('--op', Math.random()*0.5+0.2);
-    container.appendChild(star);
-  }
-}
-
-setInterval(updateClock, 1000);
-updateClock();
-createStars();
-renderAlarms();
-
 </script>
+
 </body>
 </html>
